@@ -167,29 +167,62 @@ def render_app(st, an, samples=None, patient_id_field=True, metrics=None, eval_d
     st.caption("Supported analysis types: " + ", ".join(label(m) for m in sorted({v['modality'] for v in an.tasks.values()}))
                + ". Other types (for example MRI) can be viewed but have no trained classifier.")
 
-    # 6-8. analysis -----------------------------------------------------------------------------------------------
+       # 6-8. analysis -----------------------------------------------------------------------------------------------
     runs = []
-    akey = (mod.value, mod.status, bool(quality_ok), n_max)
-    if can_run and tasks_for(an.tasks, mod.value):
+    extra_results = []
+
+    akey = (mod.value, mod.status, bool(quality_ok), n_max, is_vol)
+
+    has_original = bool(tasks_for(an.tasks, mod.value))
+    has_standalone = not is_vol and mod.value == "ct"
+
+    if can_run and (has_original or has_standalone):
         if st.session_state.get("mk_akey") != akey:
-            with st.spinner("Analysing..." if not is_vol else "Analysing slices (2D model on each slice)..."):
+            with st.spinner("Analysing..." if not is_vol else "Analysing slices..."):
                 if is_vol:
-                    out = an.analyze_volume(vol, mod.value, pid or None, True, n_max, mod.to_dict())
-                    st.session_state["mk_res"] = [{"res": r, "ovs": o, "grid": g} for r, o, g in out]
+                    out = an.analyze_volume(
+                        vol, mod.value, pid or None, True, n_max, mod.to_dict()
+                    )
+                    st.session_state["mk_res"] = [
+                        {"res": r, "ovs": o, "grid": g} for r, o, g in out
+                    ]
                 else:
-                    out = an.analyze_all(det_img, pid or None, True, mod.value, mod.to_dict())
-                    st.session_state["mk_res"] = [{"res": r, "ov": o, "cam": c} for r, o, c in out]
+                    out = an.analyze_all(
+                        det_img, pid or None, True, mod.value, mod.to_dict()
+                    )
+                    st.session_state["mk_res"] = [
+                        {"res": r, "ov": o, "cam": c} for r, o, c in out
+                    ]
+
+                standalone = []
+                if has_standalone:
+                    standalone.append(an.predict_ct(det_img))
+
+                st.session_state["mk_extra_res"] = standalone
+
             st.session_state["mk_akey"] = akey
-        runs = st.session_state["mk_res"]
+
+        runs = st.session_state.get("mk_res", [])
+        extra_results = st.session_state.get("mk_extra_res", [])
+
     elif st.session_state.get("mk_akey") is not None:
         st.session_state.pop("mk_akey", None)
         st.session_state.pop("mk_res", None)
-    if can_run and not tasks_for(an.tasks, mod.value):
-        st.info(f"No classifier was trained for {label(mod.value)} images, so no AI prediction is made. "
-                "The viewer, quality check and report are still available.")
+        st.session_state.pop("mk_extra_res", None)
+
+    if can_run and not has_original and not has_standalone:
+        st.info(
+            f"No classifier is available for {label(mod.value)} images. "
+            "The viewer, quality check and report are still available."
+        )
+
     if not can_run:
         st.warning("AI analysis has not run yet: " + (
-            "confirm the image type in the sidebar." if not mod.value or mod.blocked else "tick 'Analyze anyway' above."))
+            "confirm the image type in the sidebar."
+            if not mod.value or mod.blocked
+            else "tick 'Analyze anyway' above."
+        ))
+
     results = [r["res"] for r in runs]
 
     names = ["AI findings"] + (["Multi-slice analysis", "3D viewer"] if is_vol else []) + \
