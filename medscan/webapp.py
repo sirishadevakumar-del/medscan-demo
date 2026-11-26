@@ -174,7 +174,7 @@ def render_app(st, an, samples=None, patient_id_field=True, metrics=None, eval_d
     akey = (mod.value, mod.status, bool(quality_ok), n_max, is_vol)
 
     has_original = bool(tasks_for(an.tasks, mod.value))
-    has_standalone = not is_vol and mod.value == "ct"
+    has_standalone = not is_vol and mod.value in ("ct", "mri")
 
     if can_run and (has_original or has_standalone):
         if st.session_state.get("mk_akey") != akey:
