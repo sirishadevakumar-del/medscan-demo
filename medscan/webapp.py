@@ -229,20 +229,47 @@ def render_app(st, an, samples=None, patient_id_field=True, metrics=None, eval_d
             ["Progression", "Report", "Feedback & audit"]
     tabs = dict(zip(names, st.tabs(names)))
 
+    
     with tabs["AI findings"]:
-        if not results:
+        if not results and not extra_results:
             st.caption("No AI findings to show yet.")
         else:
-            render_summary(st, [(r, None, None) for r in results], role)
-            orig = np.asarray(det_img.convert("RGB"))
-            for r in runs:
-                if "ov" in r:
-                    ov = r["ov"]
-                else:
-                    zc = min(r["ovs"], key=lambda z: abs(z - vol.n_slices // 2))
-                    ov, orig = r["ovs"][zc], vol.slice2d("axial", zc)
-                with st.container(border=True):
-                    render_result(st, r["res"], ov, role, metrics, orig=orig, cam=r.get("cam"), eval_dir=eval_dir)
+            if results:
+                render_summary(st, [(r, None, None) for r in results], role)
+                orig = np.asarray(det_img.convert("RGB"))
+                for r in runs:
+                    if "ov" in r:
+                        ov = r["ov"]
+                    else:
+                        zc = min(r["ovs"], key=lambda z: abs(z - vol.n_slices // 2))
+                        ov, orig = r["ovs"][zc], vol.slice2d("axial", zc)
+                    with st.container(border=True):
+                        render_result(st, r["res"], ov, role, metrics, orig=orig, cam=r.get("cam"), eval_dir=eval_dir)
+
+            for extra in extra_results:
+                st.markdown("---")
+                st.subheader("CT Lung Cancer Classification")
+                c1, c2 = st.columns(2)
+                c1.metric("Predicted class", extra["prediction"])
+                c2.metric("Model confidence", f"{extra['confidence']:.2%}")
+
+                st.markdown("**Class-wise prediction scores**")
+                probability_rows = [
+                    {"Class": name, "Score": f"{score:.2%}"}
+                    for name, score in extra["probabilities"].items()
+                ]
+                st.dataframe(
+                    probability_rows,
+                    hide_index=True,
+                    use_container_width=True
+                )
+
+                st.caption(
+                    "Standalone pretrained model. Scores are not calibrated clinical "
+                    "probabilities. This is research/educational decision support only; "
+                    "a qualified clinician must review the scan."
+                )
+
 
     if is_vol:
         with tabs["Multi-slice analysis"]:
