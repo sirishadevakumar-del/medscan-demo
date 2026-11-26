@@ -119,6 +119,7 @@ class Analyzer:
 
         self.mri_module = mri_module
 
+
     # --------------------------------------------------
     # CT prediction
     # --------------------------------------------------
@@ -175,23 +176,6 @@ class Analyzer:
             "confidence": output["confidence"],
             "probabilities": output["probabilities"]
         }
-    @torch.inference_mode()
-    def predict_mri(self, image):
-        """Predict brain tumour class from an MRI image."""
-
-        output = self.mri_module.predict(
-            image,
-            self.mri_model,
-            self.mri_config
-        )
-
-        return {
-            "task": "mri_brain_tumor",
-            "modality": "mri",
-            "prediction": output["label"],
-            "confidence": output["confidence"],
-            "probabilities": output["probabilities"]
-        }
 
     # --------------------------------------------------
     # Modality routing
@@ -205,6 +189,7 @@ class Analyzer:
             p = self.ens(x, "_modality")[0].cpu().numpy()
 
         return self.modalities[int(p.argmax())], p
+
 
     # --------------------------------------------------
     # Modality detection
