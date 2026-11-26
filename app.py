@@ -32,6 +32,10 @@ def get_analyzer(path):
 
 try:
     an = get_analyzer(find_checkpoint())
+    st.write("Analyzer class:", type(an))
+    st.write("Pipeline file:", __import__("medscan.pipeline", fromlist=["Analyzer"]).__file__)
+    st.write("Has MRI method:", hasattr(an, "predict_mri"))
+    st.write("Has CT method:", hasattr(an, "predict_ct"))
 except Exception as e:
     st.error(f"Could not get the model file from '{MODEL_REPO}': {e}")
     st.stop()
