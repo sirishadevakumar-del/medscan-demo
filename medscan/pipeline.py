@@ -66,6 +66,28 @@ class Analyzer:
                 std=(0.229, 0.224, 0.225)
             )
         ])
+        # Pretrained MRI brain tumour model
+        self.mri_folder = snapshot_download(
+            repo_id="Purino/densenet121-brain-mri-tumor"
+        )
+
+        mri_inference_path = Path(self.mri_folder) / "inference.py"
+
+        spec = importlib.util.spec_from_file_location(
+            "medscan_mri_inference",
+            str(mri_inference_path)
+        )
+
+        mri_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mri_module)
+
+        self.mri_model, self.mri_config = mri_module.load_model(
+            self.mri_folder
+        )
+
+        self.mri_model = self.mri_model.to(self.device).eval()
+        self.mri_module = mri_module
+      
 
     @torch.inference_mode()
     def predict_ct(self, image):
