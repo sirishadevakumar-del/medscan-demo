@@ -112,6 +112,23 @@ class Analyzer:
                 map(float, probabilities)
             ))
         }
+    @torch.inference_mode()
+    def predict_mri(self, image):
+        """Predict brain tumour class from an MRI image."""
+
+        output = self.mri_module.predict(
+            image,
+            self.mri_model,
+            self.mri_config
+        )
+
+        return {
+            "task": "mri_brain_tumor",
+            "modality": "mri",
+            "prediction": output["label"],
+            "confidence": output["confidence"],
+            "probabilities": output["probabilities"]
+        }
 
 
     def route(self, x):
