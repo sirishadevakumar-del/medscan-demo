@@ -195,10 +195,12 @@ def render_app(st, an, samples=None, patient_id_field=True, metrics=None, eval_d
                     ]
 
                 standalone = []
-                if has_standalone:
-                    standalone.append(an.predict_ct(det_img))
+               if not is_vol and mod.value == "ct":
+                   standalone.append(an.predict_ct(det_img))
+               elif not is_vol and mod.value == "mri":
+                   standalone.append(an.predict_mri(det_img))
 
-                st.session_state["mk_extra_res"] = standalone
+            st.session_state["mk_extra_res"] = standalone
 
             st.session_state["mk_akey"] = akey
 
