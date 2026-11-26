@@ -25,19 +25,13 @@ def find_checkpoint():
 
 
 @st.cache_resource
-def get_analyzer(path, version):
-    return Analyzer(
-        path,
-        device="cpu",
-        audit_path=os.path.join(
-            tempfile.gettempdir(),
-            "medscan_audit.jsonl"
-        )
-    )
+def get_analyzer(path):
+    return Analyzer(path, device="cpu",
+                    audit_path=os.path.join(tempfile.gettempdir(), "medscan_audit.jsonl"))
 
 
 try:
-    an = get_analyzer(find_checkpoint(), "mri-enabled-v1")
+    an = get_analyzer(find_checkpoint())
 except Exception as e:
     st.error(f"Could not get the model file from '{MODEL_REPO}': {e}")
     st.stop()
