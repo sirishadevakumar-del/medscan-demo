@@ -30,6 +30,38 @@ class Analyzer:
         self.tasks = {k: v for k, v in ck["task_meta"].items() if k != "_modality"}
         self.tf = build_transforms(self.cfg.image_size, False)
         self.audit = AuditLog(audit_path)
+# Pretrained CT lung cancer model
+ct_path = hf_hub_download(
+    repo_id="SirishaDevakumar/medscan-pretrained-models",
+    filename="best_efficientnet_b0.pt",
+    repo_type="model"
+)
+
+self.ct_classes = [
+    "adenocarcinoma",
+    "large.cell.carcinoma",
+    "normal",
+    "squamous.cell.carcinoma"
+]
+
+self.ct_model = models.efficientnet_b0(weights=None)
+self.ct_model.classifier[1] = nn.Linear(1280, 4)
+
+self.ct_model.load_state_dict(
+    torch.load(ct_path, map_location="cpu", weights_only=True),
+    strict=True
+)
+
+self.ct_model = self.ct_model.to(self.device).eval()
+
+self.ct_tf = T.Compose([
+    T.Resize((224, 224)),
+    T.ToTensor(),
+    T.Normalize(
+        mean=(0.485, 0.456, 0.406),
+        std=(0.229, 0.224, 0.225)
+    )
+])
 
     def route(self, x):
         """Predict imaging modality, return (modality, probs)."""
