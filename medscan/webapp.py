@@ -165,8 +165,7 @@ def render_app(st, an, samples=None, patient_id_field=True, metrics=None, eval_d
     if is_vol:
         st.caption(f"Voxel spacing {vol.spacing[0]:.2f}x{vol.spacing[1]:.2f}x{vol.spacing[2]:.2f} mm, orientation {vol.orientation}.")
     st.caption("Supported analysis types: " + ", ".join(label(m) for m in sorted({v['modality'] for v in an.tasks.values()}))
-               + ". Other types (for example MRI) can be viewed but have no trained classifier.")
-
+               + ". Standalone pretrained CT and MRI classifiers are available for 2D images.")
        # 6-8. analysis -----------------------------------------------------------------------------------------------
     runs = []
     extra_results = []
@@ -195,10 +194,10 @@ def render_app(st, an, samples=None, patient_id_field=True, metrics=None, eval_d
                     ]
 
                 standalone = []
-               if not is_vol and mod.value == "ct":
-                   standalone.append(an.predict_ct(det_img))
-               elif not is_vol and mod.value == "mri":
-                   standalone.append(an.predict_mri(det_img))
+                if not is_vol and mod.value == "ct":
+                    standalone.append(an.predict_ct(det_img))
+                elif not is_vol and mod.value == "mri":
+                    standalone.append(an.predict_mri(det_img))
 
             st.session_state["mk_extra_res"] = standalone
 
@@ -306,7 +305,7 @@ def _multislice(st, runs, vol, role, kid):
                "(2) the multi-slice aggregation that combines them into a volume-level summary, and (3) true 3D "
                "deep-learning inference, which this system does NOT do.")
     if not runs:
-        st.info("Run an analysis first (see the messages above). MRI has no trained classifier; use the 3D viewer tab.")
+        st.info("No multi-slice classifier is available for MRI volumes. Use the 3D viewer tab.")
         return
     for r in runs:
         res, ovs = r["res"], r["ovs"]
