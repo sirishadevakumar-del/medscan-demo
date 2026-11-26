@@ -5,7 +5,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torchvision import models, transforms as T
-from huggingface_hub import hf_hub_download
+from huggingface_hub import hf_hub_download, snapshot_download
+import importlib.util
 from PIL import Image, ImageOps
 from .audit import AuditLog
 from .data import build_transforms, load_any_image, to_rgb
