@@ -112,8 +112,8 @@ class Analyzer:
                 map(float, probabilities)
             ))
         }
-    @torch.inference_mode()
-    def predict_mri(self, image):
+      @torch.inference_mode()
+      def predict_mri(self, image):
         """Predict brain tumour class from an MRI image."""
 
         output = self.mri_module.predict(
@@ -129,11 +129,9 @@ class Analyzer:
             "confidence": output["confidence"],
             "probabilities": output["probabilities"]
         }
-
-
-    def route(self, x):
-        """Predict imaging modality, return (modality, probs)."""
-        with torch.no_grad():
+       def route(self, x):
+         """Predict imaging modality, return (modality, probs)."""
+         with torch.no_grad():
             p = self.ens(x, "_modality")[0].cpu().numpy()
         return self.modalities[int(p.argmax())], p
 
