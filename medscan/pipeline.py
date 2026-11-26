@@ -62,8 +62,30 @@ self.ct_tf = T.Compose([
         std=(0.229, 0.224, 0.225)
     )
 ])
+    @torch.inference_mode()
+    def predict_ct(self, image):
+        """Predict lung cancer class from a CT image."""
 
-    def route(self, x):
+        pil = load_any_image(image) if isinstance(image, (str, Path)) else image
+        pil = ImageOps.exif_transpose(pil).convert("RGB")
+
+        x = self.ct_tf(pil).unsqueeze(0).to(self.device)
+
+        probabilities = self.ct_model(x).softmax(1)[0].cpu()
+
+        idx = int(probabilities.argmax())
+
+        return {
+            "task": "ct_lung_cancer",
+            "modality": "ct",
+            "prediction": self.ct_classes[idx],
+            "confidence": float(probabilities[idx]),
+            "probabilities": dict(zip(
+                self.ct_classes,
+                map(float, probabilities)
+            ))
+        }
+      def route(self, x):
         """Predict imaging modality, return (modality, probs)."""
         with torch.no_grad():
             p = self.ens(x, "_modality")[0].cpu().numpy()
