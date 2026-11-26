@@ -250,7 +250,10 @@ def render_app(st, an, samples=None, patient_id_field=True, metrics=None, eval_d
 
             for extra in extra_results:
                 st.markdown("---")
-                st.subheader("CT Lung Cancer Classification")
+                if extra["modality"] == "ct":
+                    st.subheader("CT Lung Cancer Classification")
+                elif extra["modality"] == "mri":
+                    st.subheader("MRI Brain Tumour Classification")
                 c1, c2 = st.columns(2)
                 c1.metric("Predicted class", extra["prediction"])
                 c2.metric("Model confidence", f"{extra['confidence']:.2%}")
