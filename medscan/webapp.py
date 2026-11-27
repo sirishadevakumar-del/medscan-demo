@@ -203,8 +203,7 @@ def render_app(st, an, samples=None, patient_id_field=True, metrics=None, eval_d
                     mri_result = an.predict_mri(det_img)
                     st.write("DEBUG - MRI result keys:", list(mri_result.keys()))
                     st.write("DEBUG - MRI overlay type:", type(mri_result.get("overlay")))
-
-    standalone.append(mri_result)
+                    standalone.append(mri_result)
 
             st.session_state["mk_extra_res"] = standalone
 
