@@ -164,8 +164,11 @@ def render_app(st, an, samples=None, patient_id_field=True, metrics=None, eval_d
         st.caption("No calibrated quality thresholds exist for this image type: raw metrics are shown, not judged.")
     if is_vol:
         st.caption(f"Voxel spacing {vol.spacing[0]:.2f}x{vol.spacing[1]:.2f}x{vol.spacing[2]:.2f} mm, orientation {vol.orientation}.")
-    st.caption("Supported analysis types: " + ", ".join(label(m) for m in sorted({v['modality'] for v in an.tasks.values()}))
-               + ". Standalone pretrained CT and MRI classifiers are available for 2D images.")
+    st.caption(
+        "Supported analysis types: "
+        + ", ".join(label(m) for m in sorted({v["modality"] for v in an.tasks.values()}))
+        + ". Standalone pretrained CT and MRI classifiers are also available for 2D images."
+    )
        # 6-8. analysis -----------------------------------------------------------------------------------------------
     runs = []
     extra_results = []
@@ -267,8 +270,31 @@ def render_app(st, an, samples=None, patient_id_field=True, metrics=None, eval_d
                     hide_index=True,
                     use_container_width=True
                 )
+                                # MRI model attention visualization
+                if extra["modality"] == "mri" and extra.get("overlay") is not None:
+                    st.markdown("**MRI Grad-CAM visualization**")
+                    col1, col2 = st.columns(2)
 
-                st.caption(
+                    with col1:
+                        st.image(
+                            det_img.convert("RGB"),
+                            caption="Original MRI",
+                            use_container_width=True
+                        )
+
+                    with col2:
+                        st.image(
+                            extra["overlay"],
+                            caption="MRI Grad-CAM overlay",
+                            use_container_width=True
+                        )
+
+                    st.caption(
+                        "The heatmap highlights image regions that influenced "
+                        "the model's prediction. It is not a tumour segmentation "
+                        "or a confirmed tumour location."
+                    )
+                    st.caption(
                     "Standalone pretrained model. Scores are not calibrated clinical "
                     "probabilities. This is research/educational decision support only; "
                     "a qualified clinician must review the scan."
