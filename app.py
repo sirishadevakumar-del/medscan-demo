@@ -37,7 +37,7 @@ def get_analyzer(path, version):
 
 
 try:
-    an = get_analyzer(find_checkpoint(), "mri-enabled-v1")
+    an = get_analyzer(find_checkpoint(), "mri-gradcam-v2")
 except Exception as e:
     st.error(f"Could not get the model file from '{MODEL_REPO}': {e}")
     st.stop()
