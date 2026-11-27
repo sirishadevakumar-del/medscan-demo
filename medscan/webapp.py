@@ -251,6 +251,10 @@ def render_app(st, an, samples=None, patient_id_field=True, metrics=None, eval_d
                         render_result(st, r["res"], ov, role, metrics, orig=orig, cam=r.get("cam"), eval_dir=eval_dir)
 
             for extra in extra_results:
+                if extra["modality"] == "mri":
+                    st.write("DEBUG - MRI overlay exists:", extra.get("overlay") is not None)
+                if extra.get("overlay") is not None:
+                    st.write("DEBUG - Overlay shape:", extra["overlay"].shape)
                 st.markdown("---")
                 if extra["modality"] == "ct":
                     st.subheader("CT Lung Cancer Classification")
