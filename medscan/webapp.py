@@ -253,33 +253,45 @@ def render_app(st, an, samples=None, patient_id_field=True, metrics=None, eval_d
                     with st.container(border=True):
                         render_result(st, r["res"], ov, role, metrics, orig=orig, cam=r.get("cam"), eval_dir=eval_dir)
 
+            
             for extra in extra_results:
                 if extra["modality"] == "mri":
-                    st.write("DEBUG - MRI overlay exists:", extra.get("overlay") is not None)
+                    st.write(
+                        "DEBUG - MRI overlay exists:",
+                        extra.get("overlay") is not None
+                    )
+
                 if extra.get("overlay") is not None:
                     st.write("DEBUG - Overlay shape:", extra["overlay"].shape)
+
                 st.markdown("---")
+
                 if extra["modality"] == "ct":
                     st.subheader("CT Lung Cancer Classification")
                 elif extra["modality"] == "mri":
                     st.subheader("MRI Brain Tumour Classification")
+
                 c1, c2 = st.columns(2)
                 c1.metric("Predicted class", extra["prediction"])
                 c2.metric("Model confidence", f"{extra['confidence']:.2%}")
 
                 st.markdown("**Class-wise prediction scores**")
+
                 probability_rows = [
                     {"Class": name, "Score": f"{score:.2%}"}
                     for name, score in extra["probabilities"].items()
                 ]
+
                 st.dataframe(
                     probability_rows,
                     hide_index=True,
                     use_container_width=True
                 )
-                                # MRI model attention visualization
+
+                # MRI model attention visualization
                 if extra["modality"] == "mri" and extra.get("overlay") is not None:
                     st.markdown("**MRI Grad-CAM visualization**")
+
                     col1, col2 = st.columns(2)
 
                     with col1:
@@ -301,11 +313,13 @@ def render_app(st, an, samples=None, patient_id_field=True, metrics=None, eval_d
                         "the model's prediction. It is not a tumour segmentation "
                         "or a confirmed tumour location."
                     )
-                    st.caption(
+
+                st.caption(
                     "Standalone pretrained model. Scores are not calibrated clinical "
                     "probabilities. This is research/educational decision support only; "
                     "a qualified clinician must review the scan."
                 )
+
 
 
     if is_vol:
