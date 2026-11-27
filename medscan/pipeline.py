@@ -29,16 +29,103 @@ VOLUME_METHOD = (
 )
 
 
+# --------------------------------------------------
+# MRI-specific Grad-CAM
+# --------------------------------------------------
+
+def mri_gradcam(model, image_tensor, target_class=None):
+
+    """Generate Grad-CAM for standalone MRI DenseNet121."""
+
+    model.eval()
+
+    gradients = []
+    activations = []
+
+    target_layer = model.features.denseblock4
+
+    def forward_hook(module, inputs, output):
+
+        activations.append(output)
+
+        output.register_hook(
+            lambda grad: gradients.append(grad)
+        )
+
+    h1 = target_layer.register_forward_hook(forward_hook)
+
+    try:
+
+        model.zero_grad(set_to_none=True)
+
+        with torch.enable_grad():
+
+            logits = model(image_tensor)
+
+            if target_class is None:
+                target_class = int(logits.argmax(1).item())
+
+            score = logits[:, target_class].sum()
+
+            score.backward()
+
+        weights = gradients[0].mean(
+            dim=(2, 3),
+            keepdim=True
+        )
+
+        cam = torch.relu(
+            (weights * activations[0]).sum(
+                dim=1,
+                keepdim=True
+            )
+        )
+
+        cam = torch.nn.functional.interpolate(
+            cam,
+            size=image_tensor.shape[-2:],
+            mode="bilinear",
+            align_corners=False
+        )
+
+        cam = cam[0, 0].detach()
+
+        cam = (cam - cam.min()) / (
+            cam.max() - cam.min() + 1e-8
+        )
+
+        return cam.cpu().numpy(), target_class
+
+    finally:
+        h1.remove()
+
+
+# --------------------------------------------------
+# Main Analyzer
+# --------------------------------------------------
+
 class Analyzer:
 
-    def __init__(self, ckpt, device=None, audit_path="runs/audit_log.jsonl"):
+    def __init__(
+        self,
+        ckpt,
+        device=None,
+        audit_path="runs/audit_log.jsonl"
+    ):
 
-        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device or (
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
 
-        self.ens, self.cfg, ck = load_checkpoint(ckpt, self.device)
+        # Original MedScan ensemble
+        self.ens, self.cfg, ck = load_checkpoint(
+            ckpt,
+            self.device
+        )
 
         self.thresholds = {
-            k: Thresholds(**v) for k, v in ck["thresholds"].items()
+            k: Thresholds(**v)
+            for k, v in ck["thresholds"].items()
         }
 
         self.modalities = ck["modalities"]
@@ -48,7 +135,10 @@ class Analyzer:
             if k != "_modality"
         }
 
-        self.tf = build_transforms(self.cfg.image_size, False)
+        self.tf = build_transforms(
+            self.cfg.image_size,
+            False
+        )
 
         self.audit = AuditLog(audit_path)
 
@@ -69,9 +159,14 @@ class Analyzer:
             "squamous.cell.carcinoma"
         ]
 
-        self.ct_model = models.efficientnet_b0(weights=None)
+        self.ct_model = models.efficientnet_b0(
+            weights=None
+        )
 
-        self.ct_model.classifier[1] = nn.Linear(1280, 4)
+        self.ct_model.classifier[1] = nn.Linear(
+            1280,
+            4
+        )
 
         self.ct_model.load_state_dict(
             torch.load(
@@ -82,7 +177,9 @@ class Analyzer:
             strict=True
         )
 
-        self.ct_model = self.ct_model.to(self.device).eval()
+        self.ct_model = self.ct_model.to(
+            self.device
+        ).eval()
 
         self.ct_tf = T.Compose([
             T.Resize((224, 224)),
@@ -101,7 +198,9 @@ class Analyzer:
             repo_id="Purino/densenet121-brain-mri-tumor"
         )
 
-        mri_inference_path = Path(self.mri_folder) / "inference.py"
+        mri_inference_path = (
+            Path(self.mri_folder) / "inference.py"
+        )
 
         spec = importlib.util.spec_from_file_location(
             "medscan_mri_inference",
@@ -109,16 +208,18 @@ class Analyzer:
         )
 
         mri_module = importlib.util.module_from_spec(spec)
+
         spec.loader.exec_module(mri_module)
 
-        self.mri_model, self.mri_config = mri_module.load_model(
-            self.mri_folder
+        self.mri_model, self.mri_config = (
+            mri_module.load_model(self.mri_folder)
         )
 
-        self.mri_model = self.mri_model.to(self.device).eval()
+        self.mri_model = self.mri_model.to(
+            self.device
+        ).eval()
 
         self.mri_module = mri_module
-
 
     # --------------------------------------------------
     # CT prediction
@@ -135,9 +236,13 @@ class Analyzer:
             else image
         )
 
-        pil = ImageOps.exif_transpose(pil).convert("RGB")
+        pil = ImageOps.exif_transpose(
+            pil
+        ).convert("RGB")
 
-        x = self.ct_tf(pil).unsqueeze(0).to(self.device)
+        x = self.ct_tf(pil).unsqueeze(0).to(
+            self.device
+        )
 
         probabilities = self.ct_model(x).softmax(1)[0].cpu()
 
@@ -148,25 +253,57 @@ class Analyzer:
             "modality": "ct",
             "prediction": self.ct_classes[idx],
             "confidence": float(probabilities[idx]),
-            "probabilities": dict(zip(
-                self.ct_classes,
-                map(float, probabilities)
-            ))
+            "probabilities": dict(
+                zip(
+                    self.ct_classes,
+                    map(float, probabilities)
+                )
+            )
         }
 
     # --------------------------------------------------
-    # MRI prediction
+    # MRI prediction + Grad-CAM
     # --------------------------------------------------
 
-    @torch.inference_mode()
     def predict_mri(self, image):
 
-        """Predict brain tumour class from an MRI image."""
+        """Predict brain tumour class and generate MRI Grad-CAM."""
 
+        pil = (
+            load_any_image(image)
+            if isinstance(image, (str, Path))
+            else image
+        )
+
+        pil = ImageOps.exif_transpose(
+            pil
+        ).convert("RGB")
+
+        # Original MRI prediction
         output = self.mri_module.predict(
-            image,
+            pil,
             self.mri_model,
             self.mri_config
+        )
+
+        # MRI preprocessing
+        x = self.mri_module.preprocess_image(
+            pil,
+            self.mri_config
+        ).unsqueeze(0).to(self.device)
+
+        # Generate MRI Grad-CAM
+        cam, target_class = mri_gradcam(
+            self.mri_model,
+            x
+        )
+
+        # Generate overlay
+        rgb = np.array(pil)
+
+        cam_overlay = overlay(
+            rgb,
+            cam
         )
 
         return {
@@ -174,7 +311,9 @@ class Analyzer:
             "modality": "mri",
             "prediction": output["label"],
             "confidence": output["confidence"],
-            "probabilities": output["probabilities"]
+            "probabilities": output["probabilities"],
+            "cam": cam,
+            "overlay": cam_overlay
         }
 
     # --------------------------------------------------
@@ -186,9 +325,14 @@ class Analyzer:
         """Predict imaging modality, return (modality, probs)."""
 
         with torch.no_grad():
-            p = self.ens(x, "_modality")[0].cpu().numpy()
+
+            p = self.ens(
+                x,
+                "_modality"
+            )[0].cpu().numpy()
 
         return self.modalities[int(p.argmax())], p
+
 
 
     # --------------------------------------------------
