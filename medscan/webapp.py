@@ -201,8 +201,6 @@ def render_app(st, an, samples=None, patient_id_field=True, metrics=None, eval_d
                     standalone.append(an.predict_ct(det_img))
                 elif not is_vol and mod.value == "mri":
                     mri_result = an.predict_mri(det_img)
-                    st.write("DEBUG - MRI result keys:", list(mri_result.keys()))
-                    st.write("DEBUG - MRI overlay type:", type(mri_result.get("overlay")))
                     standalone.append(mri_result)
 
             st.session_state["mk_extra_res"] = standalone
@@ -255,15 +253,6 @@ def render_app(st, an, samples=None, patient_id_field=True, metrics=None, eval_d
 
             
             for extra in extra_results:
-                if extra["modality"] == "mri":
-                    st.write(
-                        "DEBUG - MRI overlay exists:",
-                        extra.get("overlay") is not None
-                    )
-
-                if extra.get("overlay") is not None:
-                    st.write("DEBUG - Overlay shape:", extra["overlay"].shape)
-
                 st.markdown("---")
 
                 if extra["modality"] == "ct":
